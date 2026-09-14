@@ -1,0 +1,4 @@
+pandas
+pytest
+flake8
+scikit-learn

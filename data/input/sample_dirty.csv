@@ -1,0 +1,10 @@
+order_id,customer_id,product,quantity,unit_price,region,total_amount,event_date
+2001,C010,Notebook,1,3500.00,Sudeste,3500.00,2026-09-07T12:00:00
+2002,,Mouse,5,45.50,Sul,227.50,2026-09-07T10:00:00
+2002,C011,Teclado,3,120.00,Nordeste,360.00,2026-09-07T08:00:00
+2003,,Monitor,2,980.00,Sudeste,1960.00,2026-09-06T12:00:00
+2004,C012,Headset,-3,250.00,Centro-Oeste,-750.00,2026-09-06T09:00:00
+2005,C013,Cadeira,4,890.00,Nordeste,5000.00,2026-09-05T12:00:00
+2006,C014,Notebook,2,4200.00,Sul,8400.00,2026-09-05T07:00:00
+2007,C015,Mouse,6,39.90,Norte,239.40,2026-09-04T12:00:00
+2008,C016,Cadeira,1,890.00,Nordeste,890.00,2026-09-04T06:00:00

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: flake8 src tests
+
+  unit-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest tests/test_pipeline.py tests/test_dq_checks.py
+
+  quality-gate:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Rodar Quality Gate contra dado limpo (deve aprovar)
+        run: python -m src.quality_gate --input data/input/sample_clean.csv
+
+  build:
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build de artefato (placeholder)
+        run: |
+          echo "Simulando build de artefato — em um pipeline real, aqui"
+          echo "entraria docker build / empacotamento (ver Ex2)."
+          mkdir -p dist
+          echo "ex3DataOps build $(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/build-info.txt
+          cat dist/build-info.txt
+
+  quality-gate-demo-dirty:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      # Job separado e com continue-on-error: existe só para DEMONSTRAR que o
+      # Quality Gate barra dado ruim (exit code 1). Não faz parte da esteira
+      # principal (lint -> unit-tests -> quality-gate -> build) e por isso
+      # não pode derrubar o workflow nem bloquear o job `build`.
+      - name: Rodar Quality Gate contra dado sujo (deve reprovar — demonstração)
+        continue-on-error: true
+        run: python -m src.quality_gate --input data/input/sample_dirty.csv

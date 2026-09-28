@@ -6,14 +6,24 @@ on:
   pull_request:
     branches: ["**"]
 
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Load time of the sample files. Without it, check_freshness compares against
+  # the runner clock and the same file flips verdict depending on the day.
+  DQ_REFERENCE_DATETIME: "2026-09-13T12:00:00"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
       - run: pip install -r requirements-dev.txt
       - run: flake8 src tests
 
@@ -21,30 +31,44 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
       - run: pip install -r requirements-dev.txt
-      - run: pytest tests/test_pipeline.py tests/test_dq_checks.py
+      - name: Testes unitários e de integração
+        run: pytest -v
 
   quality-gate:
     needs: unit-tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
       - run: pip install -r requirements-dev.txt
       - name: Rodar Quality Gate contra dado limpo (deve aprovar)
-        run: python -m src.quality_gate --input data/input/sample_clean.csv
+        run: >-
+          python -m src.quality_gate
+          --input data/input/sample_clean.csv
+          --reference-datetime "$DQ_REFERENCE_DATETIME"
+          --report quality_report.json
+      - name: Publicar evidência do Quality Gate
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-report-clean
+          path: quality_report.json
+          if-no-files-found: error
 
   build:
     needs: quality-gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build de artefato (placeholder)
         run: |
           echo "Simulando build de artefato — em um pipeline real, aqui"
@@ -57,10 +81,11 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
       - run: pip install -r requirements-dev.txt
       # Job separado e com continue-on-error: existe só para DEMONSTRAR que o
       # Quality Gate barra dado ruim (exit code 1). Não faz parte da esteira
@@ -68,4 +93,30 @@ jobs:
       # não pode derrubar o workflow nem bloquear o job `build`.
       - name: Rodar Quality Gate contra dado sujo (deve reprovar — demonstração)
         continue-on-error: true
-        run: python -m src.quality_gate --input data/input/sample_dirty.csv
+        run: >-
+          python -m src.quality_gate
+          --input data/input/sample_dirty.csv
+          --reference-datetime "$DQ_REFERENCE_DATETIME"
+          --report quality_report.json
+      - name: Publicar evidência da reprovação
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-report-dirty
+          path: quality_report.json
+          if-no-files-found: error
+
+  skew-check:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Training-serving skew (informativo)
+        run: >-
+          python -m src.ml_skew_check
+          --train data/input/sample_clean.csv
+          --serving data/input/sample_serving.csv
